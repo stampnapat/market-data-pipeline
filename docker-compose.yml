@@ -1,0 +1,80 @@
+# Local data platform. Start with:  docker compose up -d
+# Values like ${POSTGRES_USER} are read from the .env file next to this one.
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — one server, separate databases:
+  #   warehouse : our data (staging / intermediate / marts)
+  #   airflow   : Airflow's own metadata (added in the next step)
+  #   metabase  : Metabase's own app data (added in the next step)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Extra variables consumed by infra/postgres/init.sh
+      WAREHOUSE_DB: ${WAREHOUSE_DB}
+      LOADER_USER: ${LOADER_USER}
+      LOADER_PASSWORD: ${LOADER_PASSWORD}
+      METABASE_READER_USER: ${METABASE_READER_USER}
+      METABASE_READER_PASSWORD: ${METABASE_READER_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Scripts in this folder run ONCE, only when the data volume is empty
+      - ./infra/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${WAREHOUSE_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # MinIO — S3-compatible object storage for the raw (bronze) layer
+  # Official minio/minio images were withdrawn from Docker Hub (Oct 2025).
+  # Chainguard publishes a maintained free build (free tier = 'latest' only).
+  # ---------------------------------------------------------------------------
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"  # S3 API (used by code)
+      - "9001:9001"  # web console (used by humans)
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      # Minimal image has no curl, so speak HTTP over bash's /dev/tcp
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /minio/health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          read -r status <&3 && [[ "$$status" == *" 200 "* ]]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # One-shot job: create the raw bucket, then exit.
+  # The client image has no shell; MC_HOST_<alias> configures the connection.
+  minio-init:
+    image: cgr.dev/chainguard/minio-client:latest
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MC_HOST_local: http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000
+    command: ["mb", "--ignore-existing", "local/${MINIO_BUCKET}"]
+
+volumes:
+  postgres_data:
+  minio_data:
