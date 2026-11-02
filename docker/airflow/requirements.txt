@@ -1,0 +1,2 @@
+# Extra Python packages for Airflow containers.
+# Added episode by episode (e.g. Binance client deps in Phase 2, dbt in Phase 4).
