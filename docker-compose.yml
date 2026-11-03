@@ -37,7 +37,7 @@ services:
   # PostgreSQL — one server, separate databases:
   #   warehouse : our data (staging / intermediate / marts)
   #   airflow   : Airflow's own metadata (DAG runs, task states)
-  #   metabase  : Metabase's own app data (added in the next step)
+  #   metabase  : Metabase's own app data (dashboards, users)
   # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16
@@ -55,6 +55,9 @@ services:
       AIRFLOW_DB_NAME: ${AIRFLOW_DB_NAME}
       AIRFLOW_DB_USER: ${AIRFLOW_DB_USER}
       AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      METABASE_DB_NAME: ${METABASE_DB_NAME}
+      METABASE_DB_USER: ${METABASE_DB_USER}
+      METABASE_DB_PASSWORD: ${METABASE_DB_PASSWORD}
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
@@ -177,6 +180,34 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+
+  # ---------------------------------------------------------------------------
+  # Metabase — dashboards on top of the marts schema
+  # ---------------------------------------------------------------------------
+  metabase:
+    image: metabase/metabase:v0.65.2.5
+    container_name: metabase
+    restart: unless-stopped
+    environment:
+      # Where Metabase stores its OWN data (not where it reads our data from)
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: 5432
+      MB_DB_DBNAME: ${METABASE_DB_NAME}
+      MB_DB_USER: ${METABASE_DB_USER}
+      MB_DB_PASS: ${METABASE_DB_PASSWORD}
+      JAVA_OPTS: -Xmx1g
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Runs once when the Postgres data volume is first created.
-# Sets up the Airflow metadata DB, the warehouse database, one schema per layer, and least-privilege roles.
+# Sets up the Airflow + Metabase app DBs, the warehouse database, one schema per layer, and least-privilege roles.
 set -euo pipefail
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-SQL
@@ -9,6 +9,10 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-SQL
   -- Airflow keeps its own metadata (DAG runs, task states) in a separate DB
   CREATE ROLE ${AIRFLOW_DB_USER} LOGIN PASSWORD '${AIRFLOW_DB_PASSWORD}';
   CREATE DATABASE ${AIRFLOW_DB_NAME} OWNER ${AIRFLOW_DB_USER};
+
+  -- Metabase keeps its own app data (dashboards, users) in a separate DB
+  CREATE ROLE ${METABASE_DB_USER} LOGIN PASSWORD '${METABASE_DB_PASSWORD}';
+  CREATE DATABASE ${METABASE_DB_NAME} OWNER ${METABASE_DB_USER};
 
   -- loader: used by Airflow ingestion + dbt (read/write)
   CREATE ROLE ${LOADER_USER} LOGIN PASSWORD '${LOADER_PASSWORD}';
