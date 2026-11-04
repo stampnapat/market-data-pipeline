@@ -1,0 +1,9 @@
+# One entry = one dataset to ingest.
+# Adding a symbol or a new pipeline should only require editing this file.
+sources:
+  - name: binance_klines
+    type: binance
+    params:
+      symbols: [BTCUSDT, ETHUSDT]
+      interval: 1h
+
