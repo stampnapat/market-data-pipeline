@@ -1,0 +1,23 @@
+name: market_data
+version: "1.0.0"
+profile: market_data
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+target-path: target
+clean-targets: [target, dbt_packages]
+
+models:
+  market_data:
+    # Layers = schemas. generate_schema_name (macros/) uses these names as-is.
+    staging:
+      +schema: staging
+      +materialized: view   # thin cleanup over source tables: always fresh, no storage
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table  # what dashboards query: precomputed for speed

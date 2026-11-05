@@ -1,0 +1,9 @@
+version: 2
+
+models:
+  - name: stg_binance__klines
+    description: Hourly crypto candles with warehouse column names.
+  - name: stg_frankfurter__fx_rates
+    description: Daily FX reference rates (business days only).
+  - name: stg_gta__thai_gold_prices
+    description: Thai 96.5% gold buy/sell prices per announcement, with Bangkok-local date.

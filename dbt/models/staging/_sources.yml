@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: ingested
+    description: >
+      Tables loaded by the Python ingestion DAGs (MinIO raw Parquet -> Postgres upsert).
+      dbt only reads them; it never writes here.
+    schema: staging
+    loaded_at_field: _loaded_at
+    tables:
+      - name: binance_klines
+        description: Binance spot 1h OHLCV candles. One row per (symbol, open_time).
+      - name: fx_rates
+        description: ECB reference FX rates via Frankfurter. Business days only.
+      - name: thai_gold_prices
+        description: >
+          Thai Gold Traders Association 96.5% gold prices (THB per baht-weight),
+          last announcement of each day. Latest-only source: no history before ingestion began.
