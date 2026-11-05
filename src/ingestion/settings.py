@@ -22,3 +22,23 @@ class MinioSettings:
             secret_key=os.environ["MINIO_ROOT_PASSWORD"],
             bucket=os.environ.get("MINIO_BUCKET", "raw"),
         )
+
+
+@dataclass(frozen=True)
+class WarehouseSettings:
+    host: str
+    port: int
+    dbname: str
+    user: str
+    password: str
+
+    @classmethod
+    def from_env(cls) -> WarehouseSettings:
+        return cls(
+            # localhost from your laptop; containers override with postgres
+            host=os.environ.get("POSTGRES_HOST", "localhost"),
+            port=int(os.environ.get("POSTGRES_PORT", "5432")),
+            dbname=os.environ["WAREHOUSE_DB"],
+            user=os.environ["LOADER_USER"],
+            password=os.environ["LOADER_PASSWORD"],
+        )
