@@ -12,3 +12,10 @@ sources:
     params:
       base: USD
       symbols: [THB]
+
+  # Third-party JSON mirror of the Gold Traders Association's latest announcement
+  # (the association's site has no public API). Latest only: no history.
+  - name: thai_gold
+    type: thai_gold
+    params:
+      url: https://api.chnwt.dev/thai-gold-api/latest

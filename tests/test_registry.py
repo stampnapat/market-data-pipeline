@@ -6,6 +6,7 @@ import pytest
 
 from ingestion.sources.binance import BinanceSource
 from ingestion.sources.frankfurter import FrankfurterSource
+from ingestion.sources.thai_gold import ThaiGoldSource
 from ingestion.sources.registry import load_sources
 
 REPO_CONFIG = Path(__file__).parents[1] / "config" / "sources.yml"
@@ -23,6 +24,10 @@ def test_repo_config_builds_fx_source():
     fx = load_sources(REPO_CONFIG)["fx_rates"]
     assert isinstance(fx, FrankfurterSource)
     assert fx.params == {"base": "USD", "symbols": ["THB"]}
+
+
+def test_repo_config_builds_thai_gold_source():
+    assert isinstance(load_sources(REPO_CONFIG)["thai_gold"], ThaiGoldSource)
 
 
 def test_unknown_source_type_is_an_error(tmp_path):

@@ -56,6 +56,17 @@ def check_fx_rate(record: Record, now: datetime) -> str | None:
     return None
 
 
+def check_thai_gold(record: Record, now: datetime) -> str | None:
+    """Return why a Thai gold quote is invalid, or None if it passes every rule."""
+    if any(record.get(f) is None for f in ("symbol", "announced_at", "buy_price", "sell_price")):
+        return "missing_value"
+    if record["buy_price"] <= 0 or record["sell_price"] <= 0:
+        return "non_positive_price"
+    if record["sell_price"] < record["buy_price"]:
+        return "negative_spread"  # dealers never sell below their buying price
+    return None
+
+
 def validate_records(
     records: list[Record], spec: DatasetSpec, now: datetime, max_reject_ratio: float = 0.05
 ) -> ValidationResult:
