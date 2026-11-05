@@ -32,7 +32,9 @@ class BinanceSource(Source):
     def fetch(self, start: datetime, end: datetime) -> list[Record]:
         interval = self.params["interval"]
         step = INTERVALS[interval]
-        if (end - start) / step > MAX_LIMIT:
+        # Compare in seconds: Airflow passes pendulum datetimes, whose durations
+        # can't be divided by a stdlib timedelta
+        if (end - start).total_seconds() / step.total_seconds() > MAX_LIMIT:
             raise ValueError(f"Window {start}..{end} exceeds {MAX_LIMIT} {interval} candles")
 
         records: list[Record] = []

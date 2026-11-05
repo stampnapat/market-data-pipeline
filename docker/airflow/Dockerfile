@@ -11,3 +11,9 @@ ARG CONSTRAINTS_URL=https://raw.githubusercontent.com/apache/airflow/constraints
 
 COPY docker/airflow/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt --constraint "${CONSTRAINTS_URL}"
+
+# Our ingestion package, installed in editable mode. At runtime ./src is also
+# mounted over /opt/pipeline/src, so code changes apply without rebuilding.
+COPY --chown=airflow:root pyproject.toml /opt/pipeline/pyproject.toml
+COPY --chown=airflow:root src /opt/pipeline/src
+RUN pip install --no-cache-dir -e /opt/pipeline --constraint "${CONSTRAINTS_URL}"

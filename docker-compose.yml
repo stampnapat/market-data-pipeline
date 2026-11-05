@@ -24,12 +24,28 @@ x-airflow-common: &airflow-common
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
     # Look for new DAG files every 30s instead of the default 300s (dev setting)
     AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"
+    # --- Pipeline settings, read by src/ingestion/settings.py ---
+    # Inside Docker, services are reached by service name, not localhost
+    PIPELINE_CONFIG: /opt/pipeline/config/sources.yml
+    MINIO_ENDPOINT: minio:9000
+    MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+    MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    MINIO_BUCKET: ${MINIO_BUCKET}
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"  # container port, not the host mapping
+    WAREHOUSE_DB: ${WAREHOUSE_DB}
+    LOADER_USER: ${LOADER_USER}
+    LOADER_PASSWORD: ${LOADER_PASSWORD}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
+    - ./src:/opt/pipeline/src
+    - ./config:/opt/pipeline/config:ro
   user: "${AIRFLOW_UID}:0"
   depends_on: &airflow-common-depends-on
     postgres:
+      condition: service_healthy
+    minio:
       condition: service_healthy
 
 services:

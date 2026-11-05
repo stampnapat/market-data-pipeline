@@ -1,0 +1,8 @@
+# Keep the Docker build context small: only what the image needs
+.git
+.venv
+logs
+dbt/target
+dbt/logs
+**/__pycache__
+.env
