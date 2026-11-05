@@ -17,3 +17,11 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt --constraint "${CONSTRAI
 COPY --chown=airflow:root pyproject.toml /opt/pipeline/pyproject.toml
 COPY --chown=airflow:root src /opt/pipeline/src
 RUN pip install --no-cache-dir -e /opt/pipeline --constraint "${CONSTRAINTS_URL}"
+
+# dbt lives in its OWN virtualenv: dbt-core and Airflow pin many of the same
+# libraries to different versions, so sharing one environment invites conflicts.
+USER root
+RUN python -m venv /opt/dbt-venv \
+    && /opt/dbt-venv/bin/pip install --no-cache-dir "dbt-core~=1.12.0" "dbt-postgres~=1.11.0" \
+    && chown -R airflow:root /opt/dbt-venv
+USER airflow

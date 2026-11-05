@@ -3,19 +3,16 @@
 Each DAG: API -> validate -> MinIO raw (Parquet) -> Postgres staging, for exactly one
 UTC day (its data interval). Re-running a day overwrites the same raw files and
 upserts the same rows, so it is idempotent. Adding a source to the YAML adds a DAG.
+A successful staging load emits the asset `ingested.<source>`, which schedules dbt.
 """
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
-import yaml
 from airflow.sdk import dag, task
 from airflow.timetables.interval import CronDataIntervalTimetable
-
-CONFIG_PATH = os.environ.get("PIPELINE_CONFIG", "/opt/pipeline/config/sources.yml")
+from pipeline_assets import CONFIG_PATH, ingested_asset, source_entries
 
 
 def build_ingestion_dag(source_name: str, source_type: str) -> None:
@@ -58,7 +55,8 @@ def build_ingestion_dag(source_name: str, source_type: str) -> None:
             )
             return paths  # small list of file paths -> fine to pass via XCom
 
-        @task
+        # On success, mark "ingested.<source>" as updated -> triggers the dbt DAG
+        @task(outlets=[ingested_asset(source_name)])
         def load_to_staging(paths: list[str]) -> int:
             """Upsert the day's raw files into the source's staging table."""
             from ingestion.settings import MinioSettings, WarehouseSettings
@@ -79,5 +77,5 @@ def build_ingestion_dag(source_name: str, source_type: str) -> None:
     ingestion()
 
 
-for entry in yaml.safe_load(Path(CONFIG_PATH).read_text())["sources"]:
+for entry in source_entries():
     build_ingestion_dag(entry["name"], entry["type"])

@@ -16,7 +16,9 @@ dev = [
     "pendulum>=3",  # Airflow passes pendulum datetimes; tests cover that case
 ]
 dbt = [
-    "dbt-postgres~=1.11",
+    # Pinned to the same minor versions as the Airflow image (docker/airflow/Dockerfile)
+    "dbt-core~=1.12.0",
+    "dbt-postgres~=1.11.0",
 ]
 
 [build-system]

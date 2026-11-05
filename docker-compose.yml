@@ -36,11 +36,17 @@ x-airflow-common: &airflow-common
     WAREHOUSE_DB: ${WAREHOUSE_DB}
     LOADER_USER: ${LOADER_USER}
     LOADER_PASSWORD: ${LOADER_PASSWORD}
+    # --- dbt (runs from its own venv; see docker/airflow/Dockerfile) ---
+    DBT_PROFILES_DIR: /opt/pipeline/dbt
+    DBT_TARGET_PATH: /tmp/dbt/target  # keep build artifacts out of the mounted project
+    DBT_LOG_PATH: /tmp/dbt/logs
+    DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
     - ./src:/opt/pipeline/src
     - ./config:/opt/pipeline/config:ro
+    - ./dbt:/opt/pipeline/dbt
   user: "${AIRFLOW_UID}:0"
   depends_on: &airflow-common-depends-on
     postgres:
