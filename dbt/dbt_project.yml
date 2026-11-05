@@ -9,6 +9,11 @@ seed-paths: ["seeds"]
 target-path: target
 clean-targets: [target, dbt_packages]
 
+vars:
+  dim_date_start: "2026-01-01"
+  dim_date_end: "2027-12-31"
+  fact_lookback_days: 3  # incremental fact_price re-processes this many recent days
+
 models:
   market_data:
     # Layers = schemas. generate_schema_name (macros/) uses these names as-is.
@@ -21,3 +26,10 @@ models:
     marts:
       +schema: marts
       +materialized: table  # what dashboards query: precomputed for speed
+
+seeds:
+  market_data:
+    +schema: staging
+    asset_reference:
+      +column_types:
+        asset_id: integer

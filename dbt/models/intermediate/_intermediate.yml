@@ -1,0 +1,7 @@
+version: 2
+
+models:
+  - name: int_crypto__daily_ohlcv
+    description: Hourly Binance candles rolled up to daily OHLCV per asset (UTC days).
+  - name: int_thai_gold__daily_close
+    description: Last Thai gold announcement of each Bangkok-local day per product.

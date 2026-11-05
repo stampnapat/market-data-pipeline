@@ -1,0 +1,7 @@
+asset_id,asset_code,asset_name,asset_class,quote_currency,price_unit,source_system
+1,BTC,Bitcoin,crypto,USDT,per coin,binance
+2,ETH,Ether,crypto,USDT,per coin,binance
+3,XAU,Gold spot,precious_metal,USD,per troy ounce,twelvedata
+4,TH_GOLD_BAR_965,Thai gold bar 96.5%,precious_metal,THB,per baht-weight (15.244 g),goldtraders_mirror
+5,TH_GOLD_ORNAMENT_965,Thai gold ornament 96.5%,precious_metal,THB,per baht-weight (15.244 g),goldtraders_mirror
+6,USDTHB,US dollar in Thai baht,fx,THB,per 1 USD,frankfurter

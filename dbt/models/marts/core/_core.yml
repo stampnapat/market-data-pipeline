@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: Calendar dimension, one row per day (date_key = YYYYMMDD).
+  - name: dim_asset
+    description: One row per asset we track (crypto, gold, FX), from seeds/asset_reference.csv.
+  - name: fact_price
+    description: >
+      Daily prices for every asset in one table. Grain: one row per (asset_id, date_key).
+      Crypto has real OHLCV; FX has one fixing per business day (O=H=L=C);
+      Thai gold uses the day's last announcement (close = dealer sell price,
+      bid/ask = dealer buy/sell).
