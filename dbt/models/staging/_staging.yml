@@ -3,7 +3,67 @@ version: 2
 models:
   - name: stg_binance__klines
     description: Hourly crypto candles with warehouse column names.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [symbol, opened_at]
+      - expression_is_true:
+          arguments:
+            expression: "low_price <= least(open_price, close_price) and greatest(open_price, close_price) <= high_price"
+    columns:
+      - name: symbol
+        data_tests: [not_null]
+      - name: asset_code
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [BTC, ETH]
+      - name: opened_at
+        data_tests: [not_null]
+      - name: close_price
+        data_tests: [not_null, positive]
+      - name: base_volume
+        data_tests:
+          - expression_is_true:
+              arguments:
+                expression: "base_volume >= 0"
+
   - name: stg_frankfurter__fx_rates
     description: Daily FX reference rates (business days only).
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [symbol, rate_date]
+      - expression_is_true:
+          arguments:
+            expression: "extract(isodow from rate_date) < 6"  # ECB never fixes on weekends
+    columns:
+      - name: rate
+        data_tests:
+          - not_null
+          - positive
+          # Plausibility band: a THB rate outside 20-50 per USD is almost surely bad data
+          - expression_is_true:
+              arguments:
+                expression: "rate between 20 and 50"
+              config:
+                severity: warn
+
   - name: stg_gta__thai_gold_prices
     description: Thai 96.5% gold buy/sell prices per announcement, with Bangkok-local date.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [symbol, announced_at]
+      - expression_is_true:
+          arguments:
+            expression: "sell_price_thb >= buy_price_thb"
+    columns:
+      - name: product
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [bar, ornament]
+      - name: buy_price_thb
+        data_tests: [not_null, positive]

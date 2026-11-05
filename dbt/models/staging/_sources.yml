@@ -10,9 +10,22 @@ sources:
     tables:
       - name: binance_klines
         description: Binance spot 1h OHLCV candles. One row per (symbol, open_time).
+        # Loaded daily at 00:00 UTC: older than ~1 day means a run was missed
+        freshness:
+          warn_after: {count: 26, period: hour}
+          error_after: {count: 50, period: hour}
+
       - name: fx_rates
         description: ECB reference FX rates via Frankfurter. Business days only.
+        # Loads on weekends/holidays add nothing new, so allow a long weekend
+        freshness:
+          warn_after: {count: 4, period: day}
+          error_after: {count: 7, period: day}
+
       - name: thai_gold_prices
         description: >
           Thai Gold Traders Association 96.5% gold prices (THB per baht-weight),
           last announcement of each day. Latest-only source: no history before ingestion began.
+        freshness:
+          warn_after: {count: 3, period: day}
+          error_after: {count: 7, period: day}

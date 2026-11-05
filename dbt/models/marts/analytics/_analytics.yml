@@ -5,7 +5,35 @@ models:
     description: >
       7- and 30-observation simple moving averages of the daily close per asset,
       plus a simple trend label (7-day MA above 30-day MA = up). NULL until a window is full.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [asset_id, price_date]
+    columns:
+      - name: ma_7
+        data_tests: [positive]
+      - name: trend
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [up, down]
+
   - name: mart_daily_volatility
     description: >
       Daily close-to-close return, intraday range and 30-observation rolling volatility
       (std. dev. of log returns), also annualized (365 for crypto, 252 for FX/gold).
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [asset_id, price_date]
+    columns:
+      - name: intraday_range_pct
+        data_tests:
+          - expression_is_true:
+              arguments:
+                expression: "intraday_range_pct >= 0"
+      - name: volatility_30_pct
+        data_tests:
+          - expression_is_true:
+              arguments:
+                expression: "volatility_30_pct >= 0"

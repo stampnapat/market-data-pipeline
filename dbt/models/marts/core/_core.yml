@@ -3,11 +3,53 @@ version: 2
 models:
   - name: dim_date
     description: Calendar dimension, one row per day (date_key = YYYYMMDD).
+    columns:
+      - name: date_key
+        description: Surrogate key YYYYMMDD.
+        data_tests: [unique, not_null]
+      - name: date_day
+        data_tests: [unique, not_null]
+
   - name: dim_asset
     description: One row per asset we track (crypto, gold, FX), from seeds/asset_reference.csv.
+    columns:
+      - name: asset_id
+        data_tests: [unique, not_null]
+      - name: asset_code
+        data_tests: [unique, not_null]
+      - name: asset_class
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [crypto, precious_metal, fx]
+
   - name: fact_price
     description: >
       Daily prices for every asset in one table. Grain: one row per (asset_id, date_key).
       Crypto has real OHLCV; FX has one fixing per business day (O=H=L=C);
       Thai gold uses the day's last announcement (close = dealer sell price,
       bid/ask = dealer buy/sell).
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [asset_id, date_key]
+      - expression_is_true:
+          arguments:
+            expression: "low_price <= least(open_price, close_price) and greatest(open_price, close_price) <= high_price"
+    columns:
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: asset_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_asset')
+                field: asset_id
+      - name: close_price
+        data_tests: [not_null, positive]
