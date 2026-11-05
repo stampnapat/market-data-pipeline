@@ -7,3 +7,8 @@ sources:
       symbols: [BTCUSDT, ETHUSDT]
       interval: 1h
 
+  - name: fx_rates
+    type: frankfurter
+    params:
+      base: USD
+      symbols: [THB]

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from ingestion.sources.binance import BinanceSource
+from ingestion.sources.frankfurter import FrankfurterSource
 from ingestion.sources.registry import load_sources
 
 REPO_CONFIG = Path(__file__).parents[1] / "config" / "sources.yml"
@@ -16,6 +17,12 @@ def test_repo_config_builds_binance_source():
     assert isinstance(binance, BinanceSource)
     assert binance.params["interval"] == "1h"
     assert set(binance.params["symbols"]) == {"BTCUSDT", "ETHUSDT"}
+
+
+def test_repo_config_builds_fx_source():
+    fx = load_sources(REPO_CONFIG)["fx_rates"]
+    assert isinstance(fx, FrankfurterSource)
+    assert fx.params == {"base": "USD", "symbols": ["THB"]}
 
 
 def test_unknown_source_type_is_an_error(tmp_path):

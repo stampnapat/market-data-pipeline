@@ -6,17 +6,20 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, ClassVar
 
-Record = dict[str, Any]
+from ingestion.datasets import DatasetSpec, Record
+
+__all__ = ["Record", "Source"]
 
 
 class Source(ABC):
     """A data source = one dataset we ingest (e.g. Binance klines).
 
-    Subclasses set `type_name` and implement `fetch`. Everything that differs
-    between pipelines lives in config/sources.yml, not in code.
+    Subclasses set `type_name` and `spec` and implement `fetch`. What differs
+    between pipelines lives in config/sources.yml and in the DatasetSpec.
     """
 
     type_name: ClassVar[str]
+    spec: ClassVar[DatasetSpec]
 
     def __init__(self, name: str, params: dict[str, Any]) -> None:
         self.name = name

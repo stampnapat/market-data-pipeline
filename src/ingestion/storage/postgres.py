@@ -1,4 +1,7 @@
-"""Load raw Parquet files from MinIO into Postgres staging with an idempotent upsert."""
+"""Load raw Parquet files from MinIO into Postgres staging with an idempotent upsert.
+
+Generic over datasets: table name, DDL, columns and key come from the DatasetSpec.
+"""
 
 from __future__ import annotations
 
@@ -11,42 +14,25 @@ from psycopg2.extensions import connection as Connection
 from psycopg2.extras import execute_values
 from pyarrow import fs
 
+from ingestion.datasets import DatasetSpec
 from ingestion.settings import WarehouseSettings
 
 log = logging.getLogger(__name__)
 
-CREATE_TABLE = """
-CREATE TABLE IF NOT EXISTS staging.binance_klines (
-    symbol        text           NOT NULL,
-    open_time     timestamptz    NOT NULL,
-    close_time    timestamptz    NOT NULL,
-    open          numeric(28, 8) NOT NULL,
-    high          numeric(28, 8) NOT NULL,
-    low           numeric(28, 8) NOT NULL,
-    close         numeric(28, 8) NOT NULL,
-    volume        numeric(28, 8) NOT NULL,
-    quote_volume  numeric(28, 8) NOT NULL,
-    trade_count   bigint         NOT NULL,
-    _ingested_at  timestamptz    NOT NULL,  -- when the raw file was written
-    _source_file  text           NOT NULL,  -- lineage: which raw file this row came from
-    _loaded_at    timestamptz    NOT NULL DEFAULT now(),
-    PRIMARY KEY (symbol, open_time)
-);
-"""
 
-COLUMNS = [
-    "symbol", "open_time", "close_time", "open", "high", "low", "close",
-    "volume", "quote_volume", "trade_count", "_ingested_at", "_source_file",
-]
+def staging_columns(spec: DatasetSpec) -> list[str]:
+    """Dataset columns + control columns, in the order we insert them."""
+    return [*spec.arrow_schema.names, "_ingested_at", "_source_file"]
 
-# Same key again -> update the row instead of inserting a duplicate (Delta MERGE equivalent)
-UPSERT = f"""
-INSERT INTO staging.binance_klines ({", ".join(COLUMNS)})
-VALUES %s
-ON CONFLICT (symbol, open_time) DO UPDATE SET
-    {", ".join(f"{c} = EXCLUDED.{c}" for c in COLUMNS if c not in ("symbol", "open_time"))},
-    _loaded_at = now();
-"""
+
+def upsert_sql(spec: DatasetSpec) -> str:
+    """Same key again -> update the row instead of inserting a duplicate (Delta MERGE equivalent)."""
+    columns = staging_columns(spec)
+    updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in columns if c not in spec.key_fields)
+    return (
+        f"INSERT INTO {spec.staging_table} ({', '.join(columns)}) VALUES %s "
+        f"ON CONFLICT ({', '.join(spec.key_fields)}) DO UPDATE SET {updates}, _loaded_at = now();"
+    )
 
 
 def connect(settings: WarehouseSettings) -> Connection:
@@ -66,18 +52,21 @@ def list_day_files(filesystem: fs.FileSystem, bucket: str, dataset: str, day: da
     return [p for p in candidates if filesystem.get_file_info(p).type == fs.FileType.File]
 
 
-def load_files(conn: Connection, filesystem: fs.FileSystem, paths: list[str]) -> int:
+def load_files(
+    conn: Connection, filesystem: fs.FileSystem, paths: list[str], spec: DatasetSpec
+) -> int:
     """Upsert all rows from the given Parquet files in ONE transaction. Returns row count."""
+    columns = staging_columns(spec)
+    sql = upsert_sql(spec)
     total = 0
     with conn, conn.cursor() as cur:  # `with conn` = commit on success, rollback on error
-        cur.execute(CREATE_TABLE)
+        cur.execute(spec.staging_ddl)
         for path in paths:
             table = pq.read_table(path, filesystem=filesystem)
             rows = [
-                tuple(r[c] for c in COLUMNS[:-1]) + (f"s3://{path}",)
-                for r in table.to_pylist()
+                tuple(r[c] for c in columns[:-1]) + (f"s3://{path}",) for r in table.to_pylist()
             ]
-            execute_values(cur, UPSERT, rows)
-            log.info("Upserted %d rows from s3://%s", len(rows), path)
+            execute_values(cur, sql, rows)
+            log.info("Upserted %d rows from s3://%s into %s", len(rows), path, spec.staging_table)
             total += len(rows)
     return total
