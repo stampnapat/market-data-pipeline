@@ -57,6 +57,12 @@ def quarantine_path(bucket: str, dataset: str, day: date) -> str:
     return f"{bucket}/_quarantine/{dataset}/date={day.isoformat()}/rejects.parquet"
 
 
+def _write_parquet(table: pa.Table, path: str, filesystem: fs.FileSystem) -> None:
+    """Write (overwrite) one Parquet file, creating parent dirs on filesystems that need them."""
+    filesystem.create_dir(path.rsplit("/", 1)[0], recursive=True)
+    pq.write_table(table, path, filesystem=filesystem)
+
+
 def write_raw(
     records: list[Record], dataset: str, filesystem: fs.FileSystem, bucket: str
 ) -> list[str]:
@@ -73,7 +79,7 @@ def write_raw(
             [{**r, "_ingested_at": ingested_at} for r in rows], schema=CANDLE_SCHEMA
         )
         path = partition_path(bucket, dataset, symbol, day)
-        pq.write_table(table, path, filesystem=filesystem)  # overwrites -> idempotent
+        _write_parquet(table, path, filesystem)  # overwrites -> idempotent
         log.info("Wrote %d rows to s3://%s", table.num_rows, path)
         paths.append(path)
     return paths
@@ -94,6 +100,6 @@ def write_quarantine(
     table = pa.Table.from_pylist(
         [{**r, "_ingested_at": ingested_at} for r in rejects], schema=QUARANTINE_SCHEMA
     )
-    pq.write_table(table, path, filesystem=filesystem)
+    _write_parquet(table, path, filesystem)
     log.warning("Quarantined %d rows to s3://%s", table.num_rows, path)
     return path
