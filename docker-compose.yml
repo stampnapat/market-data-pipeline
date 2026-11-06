@@ -1,5 +1,7 @@
 # Local data platform. Start with:  docker compose up -d
 # Values like ${POSTGRES_USER} are read from the .env file next to this one.
+# Ports are bound to 127.0.0.1: reachable from this machine only, not from others
+# on the same network (the defaults in .env.example are public placeholders).
 
 # ---------------------------------------------------------------------------
 # Shared settings for every Airflow container (YAML anchor, reused below)
@@ -81,7 +83,7 @@ services:
       METABASE_DB_USER: ${METABASE_DB_USER}
       METABASE_DB_PASSWORD: ${METABASE_DB_PASSWORD}
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Scripts in this folder run ONCE, only when the data volume is empty
@@ -106,8 +108,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
-      - "9000:9000"  # S3 API (used by code)
-      - "9001:9001"  # web console (used by humans)
+      - "127.0.0.1:9000:9000"  # S3 API (used by code)
+      - "127.0.0.1:9001:9001"  # web console (used by humans)
     volumes:
       - minio_data:/data
     healthcheck:
@@ -157,7 +159,7 @@ services:
     command: api-server
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
       interval: 30s
@@ -220,7 +222,7 @@ services:
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
       JAVA_OPTS: -Xmx1g
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
       interval: 30s
