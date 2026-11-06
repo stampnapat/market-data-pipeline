@@ -14,6 +14,7 @@ dependencies = [
 dev = [
     "pytest>=8",
     "pendulum>=3",  # Airflow passes pendulum datetimes; tests cover that case
+    "ruff~=0.17.0",
 ]
 dbt = [
     # Pinned to the same minor versions as the Airflow image (docker/airflow/Dockerfile)
@@ -31,3 +32,15 @@ packages = ["src/ingestion"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["dbt"]
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I import order, UP pyupgrade, B bugbear, SIM simplify
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ingestion", "pipeline_assets"]

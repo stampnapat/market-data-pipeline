@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Lint + unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"  # same as the Airflow image
+          cache: pip
+      - name: Install package with dev tools
+        run: pip install -e ".[dev]"
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format check
+        run: ruff format --check .
+      # Unit tests use saved API responses and a local folder as the bucket:
+      # no network, MinIO or Postgres needed (Binance even blocks US runners).
+      - name: Pytest
+        run: pytest -v
+
+  dbt:
+    name: dbt build on a fresh Postgres
+    runs-on: ubuntu-latest
+    # Non-secret throwaway values, mirroring .env.example
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci_postgres
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      WAREHOUSE_DB: warehouse
+      LOADER_USER: loader
+      LOADER_PASSWORD: ci_loader
+      METABASE_READER_USER: metabase_reader
+      METABASE_READER_PASSWORD: ci_reader
+      AIRFLOW_DB_NAME: airflow
+      AIRFLOW_DB_USER: airflow
+      AIRFLOW_DB_PASSWORD: ci_airflow
+      METABASE_DB_NAME: metabase
+      METABASE_DB_USER: metabase
+      METABASE_DB_PASSWORD: ci_metabase
+      DBT_PROFILES_DIR: dbt
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package with dbt
+        run: pip install -e ".[dbt]"
+      # Same script Docker runs on first start: databases, layer schemas, roles
+      - name: Initialise warehouse (schemas + least-privilege roles)
+        env:
+          PGHOST: localhost
+          PGPASSWORD: ci_postgres
+        run: bash infra/postgres/init.sh
+      - name: Create empty staging tables from DatasetSpecs
+        run: python scripts/create_staging_tables.py
+      - name: dbt compile
+        run: dbt compile --project-dir dbt
+      # Seeds + models + data tests in dependency order, against real Postgres
+      - name: dbt build
+        run: dbt build --project-dir dbt
