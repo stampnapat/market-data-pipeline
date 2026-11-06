@@ -220,6 +220,8 @@ services:
       MB_DB_DBNAME: ${METABASE_DB_NAME}
       MB_DB_USER: ${METABASE_DB_USER}
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
+      # Signs session keys so a leaked app DB can't be used to forge logins
+      MB_SESSION_SECRET_KEY: ${METABASE_SESSION_SECRET_KEY}
       JAVA_OPTS: -Xmx1g
     ports:
       - "127.0.0.1:3000:3000"
