@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import requests
 
@@ -32,14 +32,14 @@ def fetch_day(symbol: str, day: datetime) -> list[list]:
 
 
 def main() -> None:
-    day = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    day = datetime(2026, 11, 1, tzinfo=UTC)
     rows = fetch_day("BTCUSDT", day)
 
     print(f"Got {len(rows)} candles for {day.date()}")
     print("First raw row:", rows[0])
     print()
     for row in rows[:5]:
-        open_time = datetime.fromtimestamp(row[0] / 1000, tz=timezone.utc)
+        open_time = datetime.fromtimestamp(row[0] / 1000, tz=UTC)
         print(
             f"{open_time:%Y-%m-%d %H:%M}  open={row[1]}  high={row[2]}  "
             f"low={row[3]}  close={row[4]}  volume={row[5]}"

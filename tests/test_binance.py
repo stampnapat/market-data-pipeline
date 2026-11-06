@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pendulum
@@ -8,7 +8,7 @@ import pytest
 
 from ingestion.sources.binance import BinanceSource, to_ms
 
-START = datetime(2026, 11, 1, tzinfo=timezone.utc)
+START = datetime(2026, 11, 1, tzinfo=UTC)
 END = START + timedelta(days=1)
 
 

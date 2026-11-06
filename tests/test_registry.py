@@ -6,8 +6,8 @@ import pytest
 
 from ingestion.sources.binance import BinanceSource
 from ingestion.sources.frankfurter import FrankfurterSource
-from ingestion.sources.thai_gold import ThaiGoldSource
 from ingestion.sources.registry import load_sources
+from ingestion.sources.thai_gold import ThaiGoldSource
 
 REPO_CONFIG = Path(__file__).parents[1] / "config" / "sources.yml"
 

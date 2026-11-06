@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -10,7 +10,7 @@ from ingestion.sources.frankfurter import FX_SPEC, FrankfurterSource
 from ingestion.validation import check_fx_rate, validate_records
 
 FIXTURES = Path(__file__).parent / "fixtures"
-NOW = datetime(2026, 11, 5, tzinfo=timezone.utc)
+NOW = datetime(2026, 11, 5, tzinfo=UTC)
 
 
 class FakeResponse:
@@ -50,7 +50,7 @@ def source() -> FrankfurterSource:
 
 
 def utc(y: int, m: int, d: int) -> datetime:
-    return datetime(y, m, d, tzinfo=timezone.utc)
+    return datetime(y, m, d, tzinfo=UTC)
 
 
 def test_range_returns_one_record_per_business_day(source, fake_frankfurter):

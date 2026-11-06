@@ -7,11 +7,12 @@ idempotent, so being triggered by several sources in a morning is harmless.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import reduce
 
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import dag
+
 from pipeline_assets import ingested_asset, source_entries
 
 DBT = "/opt/dbt-venv/bin/dbt"  # separate virtualenv, see docker/airflow/Dockerfile
@@ -26,7 +27,7 @@ ANY_SOURCE_UPDATED = reduce(
 @dag(
     dag_id="dbt_transform",
     schedule=ANY_SOURCE_UPDATED,
-    start_date=datetime(2026, 11, 1, tzinfo=timezone.utc),
+    start_date=datetime(2026, 11, 1, tzinfo=UTC),
     catchup=False,
     max_active_runs=1,  # never run two dbt builds against the warehouse at once
     default_args={

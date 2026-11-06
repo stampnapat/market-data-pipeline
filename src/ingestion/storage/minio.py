@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -61,7 +61,7 @@ def write_raw(
     records: list[Record], spec: DatasetSpec, dataset: str, filesystem: fs.FileSystem, bucket: str
 ) -> list[str]:
     """Write valid records, one Parquet file per (symbol, date). Returns written paths."""
-    ingested_at = datetime.now(timezone.utc)
+    ingested_at = datetime.now(UTC)
     groups: dict[tuple[str, date], list[Record]] = defaultdict(list)
     for record in records:
         groups[(record["symbol"], _as_date(record[spec.partition_field]))].append(record)
@@ -95,7 +95,7 @@ def write_quarantine(
             log.info("Removed stale quarantine file s3://%s", path)
         return None
 
-    ingested_at = datetime.now(timezone.utc)
+    ingested_at = datetime.now(UTC)
     table = pa.Table.from_pylist(
         [{**r, "_ingested_at": ingested_at} for r in rejects], schema=quarantine_schema(spec)
     )

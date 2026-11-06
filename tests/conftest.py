@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -52,11 +52,11 @@ def binance_source() -> BinanceSource:
 @pytest.fixture
 def candles(binance_source, fake_binance) -> list[dict]:
     """Normalized records, exactly what BinanceSource.fetch returns."""
-    start = datetime(2026, 11, 1, tzinfo=timezone.utc)
-    return binance_source.fetch(start, datetime(2026, 11, 2, tzinfo=timezone.utc))
+    start = datetime(2026, 11, 1, tzinfo=UTC)
+    return binance_source.fetch(start, datetime(2026, 11, 2, tzinfo=UTC))
 
 
 @pytest.fixture
 def now() -> datetime:
     """A fixed 'current time' well after the fixture candles closed."""
-    return datetime(2026, 11, 5, tzinfo=timezone.utc)
+    return datetime(2026, 11, 5, tzinfo=UTC)

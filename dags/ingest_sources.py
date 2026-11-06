@@ -8,10 +8,11 @@ A successful staging load emits the asset `ingested.<source>`, which schedules d
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from airflow.sdk import dag, task
 from airflow.timetables.interval import CronDataIntervalTimetable
+
 from pipeline_assets import CONFIG_PATH, ingested_asset, source_entries
 
 
@@ -21,7 +22,7 @@ def build_ingestion_dag(source_name: str, source_type: str) -> None:
         # Interval timetable: the run for day D starts after D has ended, with
         # data_interval_start = D 00:00 UTC and data_interval_end = D+1 00:00 UTC.
         schedule=CronDataIntervalTimetable("0 0 * * *", timezone="UTC"),
-        start_date=datetime(2026, 8, 1, tzinfo=timezone.utc),
+        start_date=datetime(2026, 8, 1, tzinfo=UTC),
         catchup=False,  # history is loaded explicitly with `airflow backfill create`
         max_active_runs=4,
         default_args={
@@ -45,7 +46,7 @@ def build_ingestion_dag(source_name: str, source_type: str) -> None:
             start, end = context["data_interval_start"], context["data_interval_end"]
             source = load_sources(CONFIG_PATH)[source_name]
             records = source.fetch(start, end)
-            result = validate_records(records, source.spec, now=datetime.now(timezone.utc))
+            result = validate_records(records, source.spec, now=datetime.now(UTC))
 
             settings = MinioSettings.from_env()
             s3 = make_filesystem(settings)

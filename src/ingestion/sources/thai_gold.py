@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -73,7 +73,7 @@ def parse_announcement(update_date: str, update_time: str) -> tuple[datetime, in
     local = datetime(
         be_year - BUDDHIST_ERA_OFFSET, month, day, int(clock[1]), int(clock[2]), tzinfo=BANGKOK
     )
-    return local.astimezone(timezone.utc), int(number[1])
+    return local.astimezone(UTC), int(number[1])
 
 
 def parse_baht(text: str) -> Decimal:
@@ -86,9 +86,7 @@ class ThaiGoldSource(Source):
     spec = THAI_GOLD_SPEC
 
     def fetch(self, start: datetime, end: datetime) -> list[Record]:
-        response = requests.get(
-            self.params["url"], headers={"User-Agent": USER_AGENT}, timeout=10
-        )
+        response = requests.get(self.params["url"], headers={"User-Agent": USER_AGENT}, timeout=10)
         response.raise_for_status()
         payload = response.json()
         if payload.get("status") != "success":
@@ -99,7 +97,9 @@ class ThaiGoldSource(Source):
         if not start <= announced_at < end:
             log.info(
                 "Latest announcement %s is outside %s..%s; this source has no history",
-                announced_at, start, end,
+                announced_at,
+                start,
+                end,
             )
             return []
 

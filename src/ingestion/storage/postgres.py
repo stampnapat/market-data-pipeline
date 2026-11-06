@@ -26,7 +26,7 @@ def staging_columns(spec: DatasetSpec) -> list[str]:
 
 
 def upsert_sql(spec: DatasetSpec) -> str:
-    """Same key again -> update the row instead of inserting a duplicate (Delta MERGE equivalent)."""
+    """Same key again -> update the row instead of inserting a duplicate (like Delta MERGE)."""
     columns = staging_columns(spec)
     updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in columns if c not in spec.key_fields)
     return (

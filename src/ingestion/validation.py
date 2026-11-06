@@ -116,13 +116,19 @@ def _validate(
         if len(distinct) == 1:
             result.valid.append(distinct[0])
         else:
-            result.quarantined.extend({**r, "_reject_reason": "conflicting_duplicate"} for r in distinct)
+            result.quarantined.extend(
+                {**r, "_reject_reason": "conflicting_duplicate"} for r in distinct
+            )
 
     defects = [r for r in result.quarantined if r["_reject_reason"] not in NOT_A_DEFECT]
     defect_ratio = len(defects) / len(records)
     log.info(
         "Validated %d records: %d valid, %d quarantined (%d defects = %.1f%%)",
-        len(records), len(result.valid), len(result.quarantined), len(defects), defect_ratio * 100,
+        len(records),
+        len(result.valid),
+        len(result.quarantined),
+        len(defects),
+        defect_ratio * 100,
     )
     if defect_ratio > max_reject_ratio:
         raise DataQualityError(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pyarrow as pa
@@ -26,7 +26,7 @@ def to_ms(dt: datetime) -> int:
 
 
 def from_ms(ms: int) -> datetime:
-    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    return datetime.fromtimestamp(ms / 1000, tz=UTC)
 
 
 CANDLE_SPEC = DatasetSpec(
@@ -115,4 +115,3 @@ class BinanceSource(Source):
             "quote_volume": Decimal(row[7]),
             "trade_count": int(row[8]),
         }
-

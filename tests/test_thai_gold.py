@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -18,8 +18,8 @@ from ingestion.validation import check_thai_gold, validate_records
 
 FIXTURE = Path(__file__).parent / "fixtures" / "thai_gold_latest.json"
 # The fixture's announcement: 05/11/2569 11:26 Bangkok time, round 11
-ANNOUNCED = datetime(2026, 11, 5, 4, 26, tzinfo=timezone.utc)
-DAY_START = datetime(2026, 11, 5, tzinfo=timezone.utc)
+ANNOUNCED = datetime(2026, 11, 5, 4, 26, tzinfo=UTC)
+DAY_START = datetime(2026, 11, 5, tzinfo=UTC)
 
 
 class FakeResponse:
