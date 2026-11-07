@@ -17,8 +17,9 @@ FIXTURE = Path(__file__).parent / "fixtures" / "twelvedata_xauusd_daily.json"
 
 
 class FakeResponse:
-    def __init__(self, payload: dict) -> None:
+    def __init__(self, payload: dict, status_code: int = 200) -> None:
         self.payload = payload
+        self.status_code = status_code
 
     def raise_for_status(self) -> None:
         return None
@@ -32,8 +33,8 @@ def calls(monkeypatch) -> list[dict]:
     seen: list[dict] = []
     payload = json.loads(FIXTURE.read_text())
 
-    def fake_get(url, params, timeout):
-        seen.append(params)
+    def fake_get(url, headers, params, timeout):
+        seen.append({**params, **headers})
         return FakeResponse(payload)
 
     monkeypatch.setenv("TWELVEDATA_API_KEY", "test-key")
@@ -62,7 +63,8 @@ def test_bars_inside_window_only_with_exact_decimals(source, calls):
             "close": Decimal("3944.31429"),
         }
     ]
-    assert calls[0]["apikey"] == "test-key"
+    assert calls[0]["Authorization"] == "apikey test-key"  # header, never the URL
+    assert "apikey" not in calls[0]
     assert calls[0]["symbol"] == "XAU/USD"
 
 
@@ -76,8 +78,8 @@ def test_api_error_payload_fails_loudly(source, monkeypatch):
     monkeypatch.setenv("TWELVEDATA_API_KEY", "bad")
     monkeypatch.setattr(
         "ingestion.sources.twelvedata.requests.get",
-        lambda url, params, timeout: FakeResponse(
-            {"code": 401, "message": "Invalid API key", "status": "error"}
+        lambda url, headers, params, timeout: FakeResponse(
+            {"code": 401, "message": "Invalid API key", "status": "error"}, status_code=401
         ),
     )
     with pytest.raises(ValueError, match="Invalid API key"):
@@ -89,6 +91,22 @@ def test_weekend_bars_are_kept_raw_as_delivered(source, calls):
     raw data as the source sent it; dbt staging drops weekend bars."""
     records = source.fetch(utc(2026, 10, 31), utc(2026, 11, 2))  # Sat + Sun
     assert [r["price_date"] for r in records] == [date(2026, 10, 31), date(2026, 11, 1)]
+
+
+def test_no_data_answer_is_an_empty_window(source, monkeypatch):
+    """Live API: a window without bars is HTTP 400 'No data is available...'."""
+    monkeypatch.setenv("TWELVEDATA_API_KEY", "test-key")
+    no_data = {
+        "code": 400,
+        "message": "No data is available on the specified dates. Try setting different "
+        "start/end dates.",
+        "status": "error",
+    }
+    monkeypatch.setattr(
+        "ingestion.sources.twelvedata.requests.get",
+        lambda url, headers, params, timeout: FakeResponse(no_data, status_code=400),
+    )
+    assert source.fetch(utc(2026, 8, 8), utc(2026, 8, 9)) == []
 
 
 def test_empty_window_is_allowed():
@@ -108,7 +126,7 @@ def test_rate_limit_waits_and_retries(source, monkeypatch):
     waits: list[int] = []
     monkeypatch.setattr(
         "ingestion.sources.twelvedata.requests.get",
-        lambda url, params, timeout: FakeResponse(answers.pop(0)),
+        lambda url, headers, params, timeout: FakeResponse(answers.pop(0)),
     )
     monkeypatch.setattr("ingestion.sources.twelvedata._sleep", waits.append)
     records = source.fetch(utc(2026, 11, 2), utc(2026, 11, 3))

@@ -6,7 +6,11 @@ Observed on the live API (the docs are silent on these):
 - the free plan allows 8 requests per minute; a rate-limit answer is retried after
   the minute resets, so a backfill can't fail just by being fast;
 - weekend bars exist although the market is closed (flat placeholders). Raw keeps
-  them as delivered; the dbt staging model drops them.
+  them as delivered; the dbt staging model drops them;
+- a window without any bar is answered with HTTP 400 "No data is available": that
+  is an empty result, not an error.
+The key is sent in the Authorization header, not the URL, so it can never end up in
+an exception message or a task log.
 Prices arrive as strings and are parsed to Decimal.
 """
 
@@ -28,6 +32,7 @@ from ingestion.validation import check_daily_ohlc
 log = logging.getLogger(__name__)
 
 BASE_URL = "https://api.twelvedata.com/time_series"
+NO_DATA_CODE = 400
 RATE_LIMIT_CODE = 429
 RATE_LIMIT_WAIT_SECONDS = 61  # free plan: 8 requests per rolling minute
 RATE_LIMIT_RETRIES = 3
@@ -80,6 +85,9 @@ class TwelveDataSource(Source):
         records: list[Record] = []
         for symbol in self.params["symbols"]:  # e.g. "XAU/USD"
             payload = self._request(symbol, first_day, end.date(), api_key)
+            if payload is None:
+                log.info("No %s bars between %s and %s", symbol, first_day, last_day)
+                continue
             for bar in payload.get("values", []):
                 day = date.fromisoformat(bar["datetime"][:10])
                 if not first_day <= day <= last_day:
@@ -97,30 +105,33 @@ class TwelveDataSource(Source):
             log.info("Fetched %d daily bars for %s", len(records), symbol)
         return records
 
-    def _request(self, symbol: str, first_day: date, end_day: date, api_key: str) -> dict:
-        """GET one symbol's bars; wait out the per-minute rate limit instead of failing."""
+    def _request(self, symbol: str, first_day: date, end_day: date, api_key: str) -> dict | None:
+        """GET one symbol's bars. Returns None when the window has no bars; waits out
+        the per-minute rate limit instead of failing."""
         for attempt in range(RATE_LIMIT_RETRIES + 1):
             response = requests.get(
                 BASE_URL,
+                headers={"Authorization": f"apikey {api_key}"},  # keep the key out of URLs/logs
                 params={
                     "symbol": symbol,
                     "interval": self.params.get("interval", "1day"),
                     "start_date": first_day.isoformat(),
                     "end_date": end_day.isoformat(),  # exclusive
                     "order": "asc",
-                    "apikey": api_key,
                 },
                 timeout=15,
             )
-            response.raise_for_status()
-            payload = response.json()
+            if response.status_code >= 500:
+                response.raise_for_status()  # transient server error -> Airflow retries
+            payload = response.json()  # API errors come back as JSON (HTTP 200 or 4xx)
             if payload.get("status") == "ok":
                 return payload
             code, message = payload.get("code"), payload.get("message")
+            if code == NO_DATA_CODE and "no data is available" in str(message).lower():
+                return None
             if code == RATE_LIMIT_CODE and attempt < RATE_LIMIT_RETRIES:
                 log.warning("Twelve Data rate limit hit; waiting %ss", RATE_LIMIT_WAIT_SECONDS)
                 _sleep(RATE_LIMIT_WAIT_SECONDS)
                 continue
-            # Errors come back as HTTP 200 with {"status": "error", "code", "message"}
             raise ValueError(f"Twelve Data error for {symbol}: {code} {message}")
         raise AssertionError("unreachable")
