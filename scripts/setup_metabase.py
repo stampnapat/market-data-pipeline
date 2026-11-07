@@ -41,10 +41,10 @@ class Card:
     description: str = ""
 
 
-def price_with_ma(asset: str) -> Card:
+def price_with_ma(asset: str, unit: str = "USDT") -> Card:
     return Card(
         name=f"{asset}: daily close with 7/30-day moving averages",
-        description=f"{asset} daily close (USDT) and its 7- and 30-day simple moving averages.",
+        description=f"{asset} daily close ({unit}) and its 7- and 30-day simple moving averages.",
         sql=f"""
 SELECT price_date, close_price, ma_7, ma_30
 FROM marts.mart_moving_averages
@@ -54,7 +54,7 @@ ORDER BY price_date""",
         settings={
             "graph.dimensions": ["price_date"],
             "graph.metrics": ["close_price", "ma_7", "ma_30"],
-            "graph.y_axis.title_text": "USDT",
+            "graph.y_axis.title_text": unit,
             "graph.y_axis.unpin_from_zero": True,  # price level matters, not distance from 0
             "graph.x_axis.title_text": "Date (UTC)",
             "series_settings": {
@@ -87,6 +87,31 @@ ORDER BY m.asset_code, m.price_date DESC""",
     ),
     price_with_ma("BTC"),
     price_with_ma("ETH"),
+    price_with_ma("XAU", unit="USD per troy ounce"),
+    Card(
+        name="BTC vs gold: 30-day correlation of daily returns",
+        description=(
+            "Rolling correlation of daily log returns on days both trade. "
+            "+1 = move together, 0 = unrelated, -1 = opposite."
+        ),
+        sql="""
+SELECT price_date, correlation_30
+FROM marts.mart_btc_gold_correlation
+WHERE correlation_30 IS NOT NULL
+ORDER BY price_date""",
+        display="line",
+        settings={
+            "graph.dimensions": ["price_date"],
+            "graph.metrics": ["correlation_30"],
+            "graph.y_axis.title_text": "Correlation",
+            "graph.x_axis.title_text": "Date (UTC)",
+            # Correlation lives in [-1, 1]: a fixed scale makes its size readable
+            "graph.y_axis.auto_range": False,
+            "graph.y_axis.min": -1,
+            "graph.y_axis.max": 1,
+            "series_settings": {"correlation_30": {"title": "30-day correlation", "color": BLUE}},
+        },
+    ),
     Card(
         name="Annualized volatility (30-day rolling)",
         description=(
@@ -96,7 +121,7 @@ ORDER BY m.asset_code, m.price_date DESC""",
         sql="""
 SELECT price_date, asset_code, annualized_vol_pct
 FROM marts.mart_daily_volatility
-WHERE annualized_vol_pct IS NOT NULL
+WHERE annualized_vol_pct IS NOT NULL AND asset_code IN ('BTC', 'ETH', 'XAU')
 ORDER BY price_date""",
         display="line",
         settings={
@@ -107,7 +132,7 @@ ORDER BY price_date""",
             "series_settings": {
                 "BTC": {"color": BLUE},
                 "ETH": {"color": ORANGE},
-                "USDTHB": {"color": AQUA},
+                "XAU": {"title": "Gold (XAU)", "color": AQUA},
             },
         },
     ),
@@ -173,6 +198,26 @@ ORDER BY f.price_date""",
         },
     ),
     Card(
+        name="Thai gold premium over spot (%)",
+        description=(
+            "Thai 96.5% bar dealer sell price vs. its spot value in THB "
+            "(XAU x USDTHB x 15.244 g x 0.965 / 31.1035 g/oz)."
+        ),
+        sql="""
+SELECT price_date, premium_pct
+FROM marts.mart_thai_gold_premium
+ORDER BY price_date""",
+        display="line",
+        settings={
+            "graph.dimensions": ["price_date"],
+            "graph.metrics": ["premium_pct"],
+            "graph.y_axis.title_text": "Premium over spot (%)",
+            "graph.x_axis.title_text": "Date (Bangkok)",
+            "graph.y_axis.unpin_from_zero": True,
+            "series_settings": {"premium_pct": {"title": "Premium %", "color": BLUE}},
+        },
+    ),
+    Card(
         name="Data freshness",
         description=(
             "Last day loaded per asset. A growing 'days behind' means an ingestion DAG stopped."
@@ -192,14 +237,17 @@ ORDER BY a.asset_code""",
 
 # (card name, col, row, width, height) on Metabase's 24-column grid
 LAYOUT = [
-    ("Latest snapshot", 0, 0, 24, 6),  # tall enough for every asset row
-    ("BTC: daily close with 7/30-day moving averages", 0, 6, 12, 7),
-    ("ETH: daily close with 7/30-day moving averages", 12, 6, 12, 7),
-    ("Annualized volatility (30-day rolling)", 0, 13, 12, 6),
-    ("Daily return: BTC vs ETH", 12, 13, 12, 6),
-    ("USD/THB reference rate", 0, 19, 12, 6),
-    ("Thai gold bar 96.5%: dealer buy / sell", 12, 19, 12, 6),
-    ("Data freshness", 0, 25, 24, 6),
+    ("Latest snapshot", 0, 0, 24, 8),  # tall enough for all 7 asset rows
+    ("BTC: daily close with 7/30-day moving averages", 0, 8, 12, 7),
+    ("ETH: daily close with 7/30-day moving averages", 12, 8, 12, 7),
+    ("XAU: daily close with 7/30-day moving averages", 0, 15, 12, 7),
+    ("BTC vs gold: 30-day correlation of daily returns", 12, 15, 12, 7),
+    ("Annualized volatility (30-day rolling)", 0, 22, 12, 6),
+    ("Daily return: BTC vs ETH", 12, 22, 12, 6),
+    ("USD/THB reference rate", 0, 28, 12, 6),
+    ("Thai gold bar 96.5%: dealer buy / sell", 12, 28, 12, 6),
+    ("Thai gold premium over spot (%)", 0, 34, 24, 6),
+    ("Data freshness", 0, 40, 24, 8),
 ]
 
 
