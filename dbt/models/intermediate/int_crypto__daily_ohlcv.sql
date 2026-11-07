@@ -15,6 +15,7 @@ select
     (array_agg(close_price order by opened_at desc))[1]     as close_price,
     sum(base_volume)                                        as volume,
     count(*)                                                as observation_count,
-    count(*) = 24                                           as is_complete_day
+    count(*) = 24                                           as is_complete_day,
+    max(loaded_at)                                          as loaded_at
 from candles
 group by asset_code, quote_currency, opened_at::date

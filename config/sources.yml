@@ -19,3 +19,10 @@ sources:
     type: thai_gold
     params:
       url: https://api.chnwt.dev/thai-gold-api/latest
+
+  # Spot gold, USD per troy ounce. Needs TWELVEDATA_API_KEY in .env (free plan).
+  - name: gold_spot
+    type: twelvedata
+    params:
+      symbols: [XAU/USD]
+      interval: 1day

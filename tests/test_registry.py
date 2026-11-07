@@ -8,6 +8,7 @@ from ingestion.sources.binance import BinanceSource
 from ingestion.sources.frankfurter import FrankfurterSource
 from ingestion.sources.registry import load_sources
 from ingestion.sources.thai_gold import ThaiGoldSource
+from ingestion.sources.twelvedata import TwelveDataSource
 
 REPO_CONFIG = Path(__file__).parents[1] / "config" / "sources.yml"
 
@@ -28,6 +29,10 @@ def test_repo_config_builds_fx_source():
 
 def test_repo_config_builds_thai_gold_source():
     assert isinstance(load_sources(REPO_CONFIG)["thai_gold"], ThaiGoldSource)
+
+
+def test_repo_config_builds_gold_spot_source():
+    assert isinstance(load_sources(REPO_CONFIG)["gold_spot"], TwelveDataSource)
 
 
 def test_unknown_source_type_is_an_error(tmp_path):

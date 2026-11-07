@@ -29,3 +29,10 @@ sources:
         freshness:
           warn_after: {count: 3, period: day}
           error_after: {count: 7, period: day}
+
+      - name: gold_spot_prices
+        description: Spot gold XAU/USD daily bars from Twelve Data (USD per troy ounce).
+        # Warn only until a Twelve Data API key is configured and the DAG is enabled
+        freshness:
+          warn_after: {count: 4, period: day}
+          error_after: null

@@ -56,6 +56,20 @@ def check_fx_rate(record: Record, now: datetime) -> str | None:
     return None
 
 
+def check_daily_ohlc(record: Record, now: datetime) -> str | None:
+    """Daily OHLC bar without volume (e.g. spot gold)."""
+    if any(record.get(f) is None for f in ("symbol", "price_date", *PRICE_FIELDS)):
+        return "missing_value"
+    if any(record[f] <= 0 for f in PRICE_FIELDS):
+        return "non_positive_price"
+    if not (
+        record["low"] <= min(record["open"], record["close"])
+        and max(record["open"], record["close"]) <= record["high"]
+    ):
+        return "inconsistent_ohlc"
+    return None
+
+
 def check_thai_gold(record: Record, now: datetime) -> str | None:
     """Return why a Thai gold quote is invalid, or None if it passes every rule."""
     if any(record.get(f) is None for f in ("symbol", "announced_at", "buy_price", "sell_price")):

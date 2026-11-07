@@ -38,6 +38,7 @@ x-airflow-common: &airflow-common
     WAREHOUSE_DB: ${WAREHOUSE_DB}
     LOADER_USER: ${LOADER_USER}
     LOADER_PASSWORD: ${LOADER_PASSWORD}
+    TWELVEDATA_API_KEY: ${TWELVEDATA_API_KEY}
     # --- dbt (runs from its own venv; see docker/airflow/Dockerfile) ---
     DBT_PROFILES_DIR: /opt/pipeline/dbt
     DBT_TARGET_PATH: /tmp/dbt/target  # keep build artifacts out of the mounted project

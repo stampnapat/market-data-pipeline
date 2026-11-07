@@ -62,10 +62,10 @@ flowchart LR
 | [Binance](https://developers.binance.com/docs/binance-spot-api-docs/rest-api) `/api/v3/klines` | BTCUSDT, ETHUSDT 1h OHLCV | daily, 24 candles/day | no key; open candles are rejected at ingestion |
 | [Frankfurter](https://frankfurter.dev) | USD/THB (ECB reference rate) | business days | no key; API snaps weekends to Friday, which we filter out |
 | Third-party mirror of the [Gold Traders Association](https://www.goldtraders.or.th) | 96.5% gold bar and ornament, dealer buy/sell | last announcement per day | association site is client-rendered with no public API; **latest only, no history** |
-| Twelve Data (planned) | XAU/USD spot gold | daily | needs a free API key; enables the BTC-gold correlation and Thai gold premium marts |
+| [Twelve Data](https://twelvedata.com/docs/market-data/time-series) `/time_series` | XAU/USD spot gold | business days | free API key in `.env`; source, DAG and marts are built, **waiting for a key** (DAG `gold_spot` ships paused) |
 
-Current volumes: 4,368 hourly candles (90+ days backfilled), 65 FX fixings,
-Thai gold accumulating daily since 2026-11-05.
+Current volumes: 90+ days of hourly candles, 65+ FX fixings, Thai gold accumulating
+daily since 2026-11-05.
 
 ## Quick start
 
@@ -116,9 +116,9 @@ uv venv --python 3.12 .venv && source .venv/bin/activate
 uv pip install -e ".[dev,dbt]"
 set -a; source .env; set +a
 
-pytest                                 # 44 unit tests, no network or services
+pytest                                 # 52 unit tests, no network or services
 ruff check . && ruff format --check .
-cd dbt && dbt build --profiles-dir .   # models + 44 data tests against local Postgres
+cd dbt && dbt build --profiles-dir .   # models + data tests against local Postgres
 dbt docs generate --profiles-dir . && dbt docs serve --profiles-dir . --port 8081
 ```
 
@@ -132,7 +132,7 @@ dags/
   pipeline_assets.py      shared Asset definitions
 src/ingestion/
   datasets.py             DatasetSpec: key, schema, staging DDL, row checks per dataset
-  sources/                base Source contract, Binance, Frankfurter, Thai gold, registry
+  sources/                base Source contract, Binance, Frankfurter, Thai gold, Twelve Data, registry
   validation.py           row rules, dedup, quarantine, failure threshold
   storage/minio.py        partitioned Parquet writer (overwrite = idempotent)
   storage/postgres.py     generic upsert loader (one transaction per run)
@@ -140,7 +140,7 @@ dbt/
   models/staging/         sources + stg_ views (rename, cast, derive)
   models/intermediate/    daily OHLCV roll-up, Thai gold daily close
   models/marts/core/      fact_price, dim_asset, dim_date
-  models/marts/analytics/ moving averages, volatility
+  models/marts/analytics/ moving averages, volatility, BTC-gold correlation, Thai premium
   tests/                  generic + singular data tests
   seeds/                  asset_reference.csv
 tests/                    pytest with saved API responses (fixtures/)
@@ -186,11 +186,16 @@ erDiagram
 granularity are normalised: crypto rolls hourly candles up to real daily OHLCV;
 FX has one fixing per business day (O = H = L = C); Thai gold keeps the day's last
 announcement with dealer buy/sell as bid/ask. It is an **incremental** model
-(delete + insert on `(asset_id, date_key)`) that re-processes a 3-day lookback.
+(delete + insert on `(asset_id, date_key)`) that re-processes every day whose source
+rows were loaded since the last build, plus a 3-day lookback by date.
 
 Analytical marts: `mart_moving_averages` (7/30-observation SMAs, NULL until the
-window is full, trend label) and `mart_daily_volatility` (daily return, intraday
-range, 30-observation volatility of log returns, annualized with 365 or 252).
+window is full, trend label), `mart_daily_volatility` (daily return, intraday
+range, 30-observation volatility of log returns, annualized with 365 or 252),
+`mart_btc_gold_correlation` (30-observation correlation of BTC and gold log returns
+on days both trade) and `mart_thai_gold_premium` (Thai bar sell price vs. spot value
+in THB: XAU × USDTHB × 15.244 g × 0.965 / 31.1035 g per oz, as-of joined to the
+latest spot and FX at most 4 days old). The last two fill in once gold data flows.
 
 ## Data quality
 
@@ -265,12 +270,15 @@ via environment variables. Ingestion and dbt use `loader`; Metabase uses
   maintained Chainguard build.
 - `pip` installed a dbt-core release candidate in the image while local had 1.12.6,
   until both were pinned.
+- `fact_price` first selected its incremental batch by *price date* (last 3 days).
+  Testing the gold marts with a synthetic 90-day backfill showed only 3 of 65 days
+  reaching the fact table: old-dated backfills were silently skipped. It now selects
+  by *load time* (`loaded_at`), and the same test passes all 65 days.
 
 ## Future work
 
-- **XAU/USD from Twelve Data**, then `mart_btc_gold_correlation` (rolling correlation
-  on days both trade) and `mart_thai_gold_premium` (Thai bar price vs. spot gold in
-  THB per baht-weight: 15.244 g × 96.5 % / 31.1035 g per troy ounce).
+- **Turn on spot gold**: add a Twelve Data key, unpause `gold_spot`, backfill, and add
+  correlation and premium cards to the dashboard.
 - **Streaming**: Redpanda + Binance WebSocket aggregated into 1-minute candles with
   windows and watermarks in the same warehouse.
 - **Delta Lake or Iceberg** on the lake for ACID writes, time travel and compaction.

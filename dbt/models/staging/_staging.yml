@@ -67,3 +67,16 @@ models:
                 values: [bar, ornament]
       - name: buy_price_thb
         data_tests: [not_null, positive]
+
+  - name: stg_twelvedata__gold_spot
+    description: Spot gold daily OHLC (USD per troy ounce).
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [symbol, price_date]
+      - expression_is_true:
+          arguments:
+            expression: "low_price <= least(open_price, close_price) and greatest(open_price, close_price) <= high_price"
+    columns:
+      - name: close_price
+        data_tests: [not_null, positive]

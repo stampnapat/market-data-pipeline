@@ -1,0 +1,9 @@
+{
+  "meta": {"symbol": "XAU/USD", "interval": "1day", "currency_base": "Gold Spot", "currency_quote": "US Dollar", "type": "Physical Currency"},
+  "values": [
+    {"datetime": "2026-10-30", "open": "3905.10000", "high": "3931.55000", "low": "3888.20000", "close": "3921.40000"},
+    {"datetime": "2026-11-02", "open": "3921.40000", "high": "3940.00000", "low": "3899.75000", "close": "3909.40000"},
+    {"datetime": "2026-11-03", "open": "3909.40000", "high": "3925.10000", "low": "3880.00000", "close": "3890.25000"}
+  ],
+  "status": "ok"
+}

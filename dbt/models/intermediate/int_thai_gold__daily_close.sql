@@ -16,6 +16,7 @@ select
     announced_at,
     announcement_no,
     buy_price_thb,
-    sell_price_thb
+    sell_price_thb,
+    loaded_at
 from prices
 where rn = 1

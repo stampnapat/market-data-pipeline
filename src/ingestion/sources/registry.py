@@ -10,12 +10,14 @@ from ingestion.sources.base import Source
 from ingestion.sources.binance import BinanceSource
 from ingestion.sources.frankfurter import FrankfurterSource
 from ingestion.sources.thai_gold import ThaiGoldSource
+from ingestion.sources.twelvedata import TwelveDataSource
 
 # type name in YAML -> class. Adding a new source type = one line here.
 SOURCE_TYPES: dict[str, type[Source]] = {
     BinanceSource.type_name: BinanceSource,
     FrankfurterSource.type_name: FrankfurterSource,
     ThaiGoldSource.type_name: ThaiGoldSource,
+    TwelveDataSource.type_name: TwelveDataSource,
 }
 
 

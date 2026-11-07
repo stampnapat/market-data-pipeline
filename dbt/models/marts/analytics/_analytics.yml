@@ -37,3 +37,33 @@ models:
           - expression_is_true:
               arguments:
                 expression: "volatility_30_pct >= 0"
+
+  - name: mart_btc_gold_correlation
+    description: >
+      Rolling 30-observation correlation of daily log returns between BTC and spot gold,
+      computed only on days both have a close. NULL until 30 common observations exist.
+    columns:
+      - name: price_date
+        data_tests: [unique, not_null]
+      - name: correlation_30
+        data_tests:
+          - expression_is_true:
+              arguments:
+                expression: "correlation_30 between -1 and 1"
+
+  - name: mart_thai_gold_premium
+    description: >
+      Thai 96.5% gold bar dealer sell price vs. its spot value in THB
+      (XAU USD/oz x USDTHB x 15.244 g x 0.965 / 31.1035 g/oz). Positive premium = Thai
+      price above spot. Spot and FX are the latest values at most 4 days before the Thai date.
+    columns:
+      - name: price_date
+        data_tests: [unique, not_null]
+      - name: premium_pct
+        data_tests:
+          # A premium outside -5%..+10% is far more likely bad data than a real market
+          - expression_is_true:
+              arguments:
+                expression: "premium_pct between -5 and 10"
+              config:
+                severity: warn
