@@ -69,8 +69,11 @@ models:
         data_tests: [not_null, positive]
 
   - name: stg_twelvedata__gold_spot
-    description: Spot gold daily OHLC (USD per troy ounce).
+    description: Spot gold daily OHLC (USD per troy ounce), trading days only.
     data_tests:
+      - expression_is_true:
+          arguments:
+            expression: "extract(isodow from price_date) < 6"
       - unique_combination_of_columns:
           arguments:
             combination_of_columns: [symbol, price_date]

@@ -1,5 +1,5 @@
-"""Twelve Data gold source. The fixture follows the documented /time_series shape;
-re-record it from a live response once an API key is configured."""
+"""Twelve Data gold source. The fixture is a recorded live /time_series response
+(XAU/USD, 2026-10-29 to 2026-11-02, including the weekend bars the API returns)."""
 
 from __future__ import annotations
 
@@ -56,10 +56,10 @@ def test_bars_inside_window_only_with_exact_decimals(source, calls):
         {
             "symbol": "XAUUSD",  # slash removed: symbol becomes a path segment
             "price_date": date(2026, 11, 2),
-            "open": Decimal("3921.40000"),
-            "high": Decimal("3940.00000"),
-            "low": Decimal("3899.75000"),
-            "close": Decimal("3909.40000"),
+            "open": Decimal("3875.34685"),
+            "high": Decimal("3969.9869"),
+            "low": Decimal("3866.02108"),
+            "close": Decimal("3944.31429"),
         }
     ]
     assert calls[0]["apikey"] == "test-key"
@@ -84,10 +84,36 @@ def test_api_error_payload_fails_loudly(source, monkeypatch):
         source.fetch(utc(2026, 11, 2), utc(2026, 11, 3))
 
 
-def test_weekend_window_is_empty_and_allowed(source, calls):
+def test_weekend_bars_are_kept_raw_as_delivered(source, calls):
+    """The live API returns Sat/Sun bars although the market is closed. Ingestion keeps
+    raw data as the source sent it; dbt staging drops weekend bars."""
     records = source.fetch(utc(2026, 10, 31), utc(2026, 11, 2))  # Sat + Sun
-    assert records == []
-    assert validate_records(records, GOLD_SPOT_SPEC, utc(2026, 11, 5)).valid == []
+    assert [r["price_date"] for r in records] == [date(2026, 10, 31), date(2026, 11, 1)]
+
+
+def test_empty_window_is_allowed():
+    assert validate_records([], GOLD_SPOT_SPEC, utc(2026, 11, 5)).valid == []
+
+
+def test_rate_limit_waits_and_retries(source, monkeypatch):
+    monkeypatch.setenv("TWELVEDATA_API_KEY", "test-key")
+    answers = [
+        {
+            "code": 429,
+            "message": "You have run out of API credits for the current minute.",
+            "status": "error",
+        },
+        json.loads(FIXTURE.read_text()),
+    ]
+    waits: list[int] = []
+    monkeypatch.setattr(
+        "ingestion.sources.twelvedata.requests.get",
+        lambda url, params, timeout: FakeResponse(answers.pop(0)),
+    )
+    monkeypatch.setattr("ingestion.sources.twelvedata._sleep", waits.append)
+    records = source.fetch(utc(2026, 11, 2), utc(2026, 11, 3))
+    assert len(records) == 1
+    assert waits == [61]
 
 
 @pytest.mark.parametrize(
