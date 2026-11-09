@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/stampnapat/market-data-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/stampnapat/market-data-pipeline/actions/workflows/ci.yml)
 
-An end-to-end **batch data pipeline** that ingests Binance crypto candles, USD/THB
-reference rates and Thai 96.5% gold prices every day, lands them as Parquet in an
+An end-to-end **batch data pipeline** that ingests Binance crypto candles, spot gold,
+USD/THB reference rates and Thai 96.5% gold prices every day, lands them as Parquet in an
 S3-compatible lake, loads them into a Postgres warehouse and models them with dbt
 into a star schema and analytical marts for a Metabase dashboard.
 
@@ -17,6 +17,7 @@ quality gates, data-aware orchestration and CI**, not just charts.
 flowchart LR
     subgraph Sources
         B[Binance REST API<br/>BTC, ETH 1h klines]
+        G[Twelve Data API<br/>XAU/USD daily]
         F[Frankfurter API<br/>ECB USD/THB]
         T[Thai gold JSON mirror<br/>Gold Traders Assoc.]
     end
@@ -39,7 +40,7 @@ flowchart LR
 
     MB[Metabase<br/>read-only on marts]
 
-    B & F & T --> I
+    B & G & F & T --> I
     I --> R & Q
     R -->|upsert ON CONFLICT| S
     I -. "Asset ingested.*" .-> D
@@ -62,10 +63,10 @@ flowchart LR
 | [Binance](https://developers.binance.com/docs/binance-spot-api-docs/rest-api) `/api/v3/klines` | BTCUSDT, ETHUSDT 1h OHLCV | daily, 24 candles/day | no key; open candles are rejected at ingestion |
 | [Frankfurter](https://frankfurter.dev) | USD/THB (ECB reference rate) | business days | no key; API snaps weekends to Friday, which we filter out |
 | Third-party mirror of the [Gold Traders Association](https://www.goldtraders.or.th) | 96.5% gold bar and ornament, dealer buy/sell | last announcement per day | association site is client-rendered with no public API; **latest only, no history** |
-| [Twelve Data](https://twelvedata.com/docs/market-data/time-series) `/time_series` | XAU/USD spot gold | business days | free API key in `.env`; source, DAG and marts are built, **waiting for a key** (DAG `gold_spot` ships paused) |
+| [Twelve Data](https://twelvedata.com/docs/market-data/time-series) `/time_series` | XAU/USD spot gold | business days | free API key in `.env`, 8 requests/min; key sent in a header; flat weekend bars dropped in dbt |
 
-Current volumes: 90+ days of hourly candles, 65+ FX fixings, Thai gold accumulating
-daily since 2026-11-05.
+Current volumes: 90+ days of hourly candles and of daily gold and FX, Thai gold
+accumulating daily since 2026-11-05.
 
 ## Quick start
 
@@ -132,7 +133,7 @@ dags/
   pipeline_assets.py      shared Asset definitions
 src/ingestion/
   datasets.py             DatasetSpec: key, schema, staging DDL, row checks per dataset
-  sources/                base Source contract, Binance, Frankfurter, Thai gold, Twelve Data, registry
+  sources/                Source contract + Binance, Twelve Data, Frankfurter, Thai gold, registry
   validation.py           row rules, dedup, quarantine, failure threshold
   storage/minio.py        partitioned Parquet writer (overwrite = idempotent)
   storage/postgres.py     generic upsert loader (one transaction per run)
@@ -195,7 +196,15 @@ range, 30-observation volatility of log returns, annualized with 365 or 252),
 `mart_btc_gold_correlation` (30-observation correlation of BTC and gold log returns
 on days both trade) and `mart_thai_gold_premium` (Thai bar sell price vs. spot value
 in THB: XAU × USDTHB × 15.244 g × 0.965 / 31.1035 g per oz, as-of joined to the
-latest spot and FX at most 4 days old). The last two fill in once gold data flows.
+latest spot and FX at most 4 days old).
+
+What the first weeks of data show (early November 2026):
+
+| Metric | Value |
+|---|---|
+| Thai gold bar premium over spot | about **+0.27 %** (~175 THB per baht-weight) |
+| 30-day correlation, BTC vs. gold daily returns | **0.36** (range 0.23 to 0.62 over the period) |
+| Annualized volatility | gold ~25 %, BTC ~36 %, ETH ~49 % |
 
 ## Data quality
 
@@ -270,6 +279,11 @@ via environment variables. Ingestion and dbt use `loader`; Metabase uses
   maintained Chainguard build.
 - `pip` installed a dbt-core release candidate in the image while local had 1.12.6,
   until both were pinned.
+- The Twelve Data key travelled as a URL parameter, so an HTTP error printed it into an
+  Airflow task log. It now goes in the `Authorization` header and a test asserts it is
+  absent from the request parameters; the leaked log lines were scrubbed.
+- The live API answered a window without bars with HTTP 400 "No data is available",
+  which made backfill tasks fail and retry. It is now an empty result.
 - `fact_price` first selected its incremental batch by *price date* (last 3 days).
   Testing the gold marts with a synthetic 90-day backfill showed only 3 of 65 days
   reaching the fact table: old-dated backfills were silently skipped. It now selects
@@ -277,8 +291,9 @@ via environment variables. Ingestion and dbt use `loader`; Metabase uses
 
 ## Future work
 
-- **Turn on spot gold**: add a Twelve Data key, unpause `gold_spot`, backfill, and add
-  correlation and premium cards to the dashboard.
+- A bulk backfill mode for rate-limited APIs: one request can return 90 days, while the
+  per-day DAG needs 90 requests (about 12 minutes on the free plan). Per-day runs were
+  kept because they reuse the daily code path and stay idempotent per day.
 - **Streaming**: Redpanda + Binance WebSocket aggregated into 1-minute candles with
   windows and watermarks in the same warehouse.
 - **Delta Lake or Iceberg** on the lake for ACID writes, time travel and compaction.
