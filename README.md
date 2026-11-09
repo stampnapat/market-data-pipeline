@@ -106,9 +106,17 @@ no history, so it can't be backfilled.
 
 ### Dashboard
 
-Follow [docs/metabase.md](docs/metabase.md): connect Metabase to the warehouse as
-`metabase_reader`, then build the dashboard from code with
-`python scripts/setup_metabase.py`.
+![Market Overview dashboard in Metabase](docs/images/dashboard.png)
+
+Eleven questions over the `marts` schema: latest snapshot, BTC / ETH / gold with 7- and
+30-day moving averages, BTC-gold correlation, volatility, daily returns, USD/THB, Thai
+gold buy/sell, Thai premium over spot and data freshness. Follow
+[docs/metabase.md](docs/metabase.md) to connect Metabase as `metabase_reader`, then
+build the dashboard from code with `python scripts/setup_metabase.py`.
+
+On weekends Thai dealers still publish prices while spot gold and FX don't trade, so
+the premium for a Saturday or Sunday is measured against Friday's spot and FX (the
+latest values at most 4 days old). That is why it can step on weekends.
 
 ### Local development
 

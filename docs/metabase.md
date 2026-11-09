@@ -1,5 +1,7 @@
 # Metabase dashboard
 
+![Market Overview dashboard](images/dashboard.png)
+
 The "Market Overview" dashboard is defined in code (`scripts/setup_metabase.py`):
 every question is native SQL over the `marts` schema, so the dashboard can be
 rebuilt identically on any machine, and re-running the script updates it in place.
@@ -39,7 +41,7 @@ set -a; source .env; set +a
 python scripts/setup_metabase.py
 ```
 
-It creates (or updates) a **Market Data Pipeline** collection with eight questions
+It creates (or updates) a **Market Data Pipeline** collection with eleven questions
 and the **Market Overview** dashboard, and prints the dashboard URL.
 
 ## What is on the dashboard
@@ -51,7 +53,10 @@ and the **Market Overview** dashboard, and prints the dashboard URL.
 | Annualized volatility (30-day rolling) | `mart_daily_volatility` | all assets on one % axis |
 | Daily return: BTC vs ETH | `mart_daily_volatility` | % change close-to-close |
 | USD/THB reference rate | `fact_price` | business days only |
+| XAU close with 7/30-day MA | `mart_moving_averages` | USD per troy ounce, trading days only |
+| BTC vs gold: 30-day correlation | `mart_btc_gold_correlation` | fixed -1..1 axis so the size of the value reads correctly |
 | Thai gold bar: dealer buy / sell | `fact_price` (bid/ask) | grows daily from the first capture; no history |
+| Thai gold premium over spot (%) | `mart_thai_gold_premium` | weekends compare with Friday's spot and FX |
 | Data freshness | `fact_price` + `dim_asset` | last day per asset; spot a stopped DAG |
 
 ## Design choices
